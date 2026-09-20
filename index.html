@@ -1,0 +1,2539 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <!-- 모바일 뷰포트 최적화 & 노치/홈바 safe-area 대응 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>미러핏 (MirrorFit) - AI 체형분석 & 스타일링</title>
+  <style>
+    /* =========================================================
+       미러핏 (MirrorFit) 단일 파일 일체형 스타일 시스템
+       외부 종속성 제로 / 메일 첨부 및 모바일 최적화
+       ========================================================= */
+
+    :root {
+      --primary-mint: #38c9b2;
+      --primary-mint-dark: #20af9a;
+      --primary-mint-light: #e6f9f6;
+      --primary-mint-soft: #f0faf8;
+      --primary-gradient: linear-gradient(135deg, #4de0c8 0%, #30c0ab 100%);
+      --banner-gradient: linear-gradient(135deg, #6ceeda 0%, #35cbb4 100%);
+      
+      --white: #ffffff;
+      --bg-page: #edf2f0;
+      --bg-card: #ffffff;
+      --text-main: #172421;
+      --text-sub: #536461;
+      --text-muted: #8c9e9a;
+      --border-light: #e6eeec;
+      --border-mint: #bcf0e8;
+      
+      --shadow-sm: 0 2px 8px rgba(25, 75, 68, 0.05);
+      --shadow-md: 0 8px 24px rgba(25, 75, 68, 0.08);
+      --shadow-mint: 0 8px 20px rgba(56, 201, 178, 0.32);
+      
+      --radius-sm: 10px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --radius-full: 9999px;
+      --transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px 0;
+    }
+
+    /* =========================================================
+       디바이스 프레임 (PC에서는 스마트폰 목업, 모바일에서는 100% 풀스크린 앱)
+       ========================================================= */
+    .app-container {
+      width: 100%;
+      max-width: 420px;
+      height: 860px;
+      background: var(--white);
+      border-radius: 46px;
+      box-shadow: 0 25px 60px rgba(18, 48, 42, 0.22), 0 0 0 10px #242928;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* PC 전용 스마트폰 상단 노치 / 카메라 */
+    .phone-notch {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 130px;
+      height: 26px;
+      background: #242928;
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
+      z-index: 999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      pointer-events: none;
+    }
+    .phone-speaker {
+      width: 44px;
+      height: 4px;
+      background: #3b4240;
+      border-radius: 2px;
+    }
+    .phone-camera-lens {
+      width: 9px;
+      height: 9px;
+      background: #171d1c;
+      border-radius: 50%;
+      margin-left: 10px;
+      border: 1px solid #303835;
+    }
+
+    /* PC 전용 스마트폰 하단 홈 바 */
+    .phone-chin {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 130px;
+      height: 4px;
+      background: #1e2624;
+      border-radius: 2px;
+      z-index: 999;
+      pointer-events: none;
+      opacity: 0.3;
+    }
+
+    /* PC 상태바 */
+    .status-bar {
+      height: 40px;
+      padding: 10px 22px 0 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #172421;
+      z-index: 100;
+      user-select: none;
+      background: transparent;
+    }
+    .status-bar .icons {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    /* PC 환경용 뷰 토글 버튼 */
+    .view-mode-toggle {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      background: var(--white);
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary-mint-dark);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+      cursor: pointer;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border-mint);
+    }
+
+    /* 데스크탑 와이드 모드 */
+    body.full-mode {
+      padding: 0;
+      background: #f7faf9;
+    }
+    body.full-mode .app-container {
+      max-width: 640px;
+      height: 100vh;
+      border-radius: 0;
+      box-shadow: 0 0 40px rgba(0,0,0,0.06);
+      border: none;
+    }
+    body.full-mode .phone-notch,
+    body.full-mode .phone-chin {
+      display: none;
+    }
+
+    /* =========================================================
+       ⭐ 모바일(스마트폰) 환경 완벽 최적화 미디어 쿼리 ⭐
+       메일이나 모바일 브라우저에서 열었을 때 실제 네이티브 앱처럼 100% 꽉 차게 표시
+       ========================================================= */
+    @media (max-width: 640px) {
+      body {
+        padding: 0 !important;
+        background: var(--white) !important;
+        align-items: stretch !important;
+        height: 100% !important;
+        min-height: 100% !important;
+      }
+      .app-container {
+        max-width: 100% !important;
+        width: 100% !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+      .phone-notch,
+      .phone-chin,
+      .view-mode-toggle,
+      .status-bar {
+        display: none !important; /* 스마트폰 실제 시스템 UI가 있으므로 가짜 UI 숨김 */
+      }
+      .screen-viewport {
+        height: 100% !important;
+      }
+    }
+
+    /* =========================================================
+       화면 라우터 시스템 (Screen Viewport)
+       ========================================================= */
+    .screen-viewport {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      height: calc(100% - 40px);
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      background: var(--white);
+      overflow-y: auto;
+      overflow-x: hidden;
+      opacity: 0;
+      padding-bottom: 24px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .screen::-webkit-scrollbar {
+      display: none;
+    }
+    .screen.active {
+      display: flex;
+      opacity: 1;
+      z-index: 10;
+    }
+
+    /* 상단 공통 네비 헤더 */
+    .nav-header {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      position: sticky;
+      top: 0;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      border-bottom: 1px solid rgba(230, 238, 236, 0.7);
+      flex-shrink: 0;
+    }
+    .btn-back {
+      background: none;
+      border: none;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 50%;
+      color: var(--text-main);
+    }
+    .header-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    /* 공통 버튼 */
+    .btn-primary {
+      width: 100%;
+      height: 52px;
+      background: var(--primary-gradient);
+      border: none;
+      border-radius: var(--radius-full);
+      color: var(--white);
+      font-size: 16px;
+      font-weight: 700;
+      box-shadow: var(--shadow-mint);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: var(--transition);
+      outline: none;
+    }
+    .btn-primary:active {
+      transform: scale(0.98);
+      filter: brightness(0.95);
+    }
+    .btn-secondary {
+      width: 100%;
+      height: 50px;
+      background: var(--primary-mint-soft);
+      color: var(--primary-mint-dark);
+      border: 1.5px solid var(--border-mint);
+      border-radius: var(--radius-full);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+    }
+
+    /* =========================================================
+       [Step 1] 온보딩 / 스플래시 화면 (첨부 1)
+       ========================================================= */
+    #screen-splash {
+      padding: 20px 24px 32px 24px;
+      text-align: center;
+      justify-content: space-between;
+      background: radial-gradient(circle at 50% 30%, #f1faf8 0%, #ffffff 75%);
+    }
+    .brand-logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--primary-mint-light);
+      color: var(--primary-mint-dark);
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    .splash-title {
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1.35;
+      color: var(--text-main);
+      letter-spacing: -0.5px;
+    }
+    .splash-graphic-wrap {
+      position: relative;
+      width: 240px;
+      height: 300px;
+      margin: 10px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .circle-mint-bg {
+      position: absolute;
+      width: 190px;
+      height: 190px;
+      background: #d8f6f0;
+      opacity: 0.7;
+      border-radius: 50%;
+      top: 50px;
+      left: 25px;
+    }
+    .circle-coral-1 {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      background: #ffb9aa;
+      opacity: 0.6;
+      border-radius: 50%;
+      top: 25px;
+      right: 15px;
+    }
+    .circle-coral-2 {
+      position: absolute;
+      width: 65px;
+      height: 65px;
+      background: #ffa895;
+      opacity: 0.55;
+      border-radius: 50%;
+      bottom: 45px;
+      left: 5px;
+    }
+    .graphic-svg-body {
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+    }
+    .splash-desc {
+      font-size: 14.5px;
+      color: var(--text-sub);
+      line-height: 1.5;
+      margin-top: 8px;
+      font-weight: 500;
+    }
+    .splash-desc strong {
+      color: var(--primary-mint-dark);
+      font-weight: 700;
+    }
+    .splash-dots {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 7px;
+      margin-top: 14px;
+    }
+    .splash-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #d8e5e2;
+    }
+    .splash-dot.active {
+      width: 20px;
+      border-radius: 4px;
+      background: var(--primary-mint);
+    }
+
+    /* =========================================================
+       [Step 2-1] 로그인 화면
+       ========================================================= */
+    #screen-login {
+      padding: 30px 24px;
+      justify-content: center;
+    }
+    .login-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .login-header h2 {
+      font-size: 23px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+    .login-header p {
+      font-size: 13.5px;
+      color: var(--text-sub);
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      text-align: left;
+      margin-bottom: 14px;
+    }
+    .input-group label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-sub);
+    }
+    .input-group input {
+      height: 48px;
+      padding: 0 16px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border-light);
+      font-size: 15px;
+      outline: none;
+    }
+    .input-group input:focus {
+      border-color: var(--primary-mint);
+    }
+    .social-divider {
+      display: flex;
+      align-items: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      margin: 16px 0;
+    }
+    .social-divider::before, .social-divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .social-divider span {
+      padding: 0 10px;
+    }
+    .btn-kakao {
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: #fee500;
+      color: #191600;
+      border: none;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .btn-naver {
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: #03c75a;
+      color: var(--white);
+      border: none;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    /* =========================================================
+       [Step 2-2] 3대 체형 전문 가이드 화면
+       ========================================================= */
+    #screen-guide {
+      padding: 0 0 24px 0;
+    }
+    .guide-box {
+      padding: 18px 20px;
+    }
+    .body-type-tabs {
+      display: flex;
+      background: var(--primary-mint-soft);
+      padding: 4px;
+      border-radius: var(--radius-full);
+      gap: 4px;
+      margin: 16px 0;
+      border: 1px solid var(--border-mint);
+    }
+    .body-tab-btn {
+      flex: 1;
+      padding: 9px 0;
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-full);
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-sub);
+      cursor: pointer;
+    }
+    .body-tab-btn.active {
+      background: var(--primary-mint);
+      color: var(--white);
+      box-shadow: 0 2px 8px rgba(56, 201, 178, 0.3);
+    }
+    .body-type-card {
+      background: var(--white);
+      border: 1.5px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      display: none;
+    }
+    .body-type-card.active {
+      display: block;
+    }
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card-visual-box {
+      width: 100%;
+      height: 150px;
+      background: linear-gradient(180deg, #f3fbf9 0%, #ffffff 100%);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      border: 1px dashed var(--border-mint);
+    }
+    .type-desc-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13.5px;
+    }
+    .desc-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.45;
+      color: var(--text-sub);
+    }
+    .desc-item .tag {
+      background: #edf3f1;
+      color: var(--text-main);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      margin-top: 1px;
+    }
+
+    /* =========================================================
+       [Step 3] AI 사진 촬영 / 첨부 (첨부 3 좌측)
+       ========================================================= */
+    #screen-capture {
+      background: #1b2422;
+      color: var(--white);
+      padding: 0;
+    }
+    .camera-container {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #151d1b;
+      min-height: 420px;
+    }
+    .camera-preview-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    .camera-crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 250px;
+      height: 250px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .body-guide-svg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 170px;
+      height: 360px;
+      pointer-events: none;
+      filter: drop-shadow(0 0 8px rgba(56, 201, 178, 0.8));
+    }
+    /* 4대 말풍선 핀 (첨부 3) */
+    .pin-bubble {
+      position: absolute;
+      background: var(--white);
+      color: #111a18;
+      padding: 7px 13px;
+      border-radius: 20px;
+      font-size: 12.5px;
+      font-weight: 800;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+      border: 2px solid var(--primary-mint);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .pin-neck { top: 16%; right: 14px; }
+    .pin-shoulder { top: 23%; left: 14px; }
+    .pin-waist { top: 52%; left: 16px; }
+    .pin-arm { top: 54%; right: 16px; }
+
+    .capture-bottom-bar {
+      background: #182220;
+      padding: 16px 20px 24px 20px;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .capture-controls {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-icon-sq {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* =========================================================
+       [Step 4] 사전 설문조사 (첨부 3 우측)
+       ========================================================= */
+    #screen-survey {
+      padding: 0 0 24px 0;
+    }
+    .survey-progress-box {
+      padding: 12px 20px 0 20px;
+    }
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      background: #e6eeec;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      width: 33.3%;
+      height: 100%;
+      background: var(--primary-mint);
+    }
+    .survey-body {
+      padding: 14px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .survey-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .survey-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .survey-label small {
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+    .form-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .select-pill {
+      position: relative;
+    }
+    .select-pill select {
+      width: 100%;
+      height: 46px;
+      padding: 0 14px;
+      border-radius: var(--radius-full);
+      border: 1.5px solid var(--border-light);
+      background: var(--white);
+      font-size: 14px;
+      font-weight: 600;
+      outline: none;
+      appearance: none;
+    }
+    .select-arrow {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .chip-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .chip-3col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .chip-btn {
+      height: 46px;
+      border-radius: var(--radius-full);
+      border: 1.5px solid var(--border-light);
+      background: var(--white);
+      color: var(--text-sub);
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+    }
+    .chip-btn.active {
+      background: var(--primary-mint);
+      border-color: var(--primary-mint);
+      color: var(--white);
+      box-shadow: 0 3px 10px rgba(56, 201, 178, 0.3);
+    }
+
+    /* =========================================================
+       [Step 5-1] AI 분석 로딩 화면
+       ========================================================= */
+    #screen-loading {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 30px;
+      background: radial-gradient(circle at 50% 40%, #ebfaf7 0%, #ffffff 80%);
+    }
+    .radar-box {
+      width: 200px;
+      height: 200px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    .radar-circle {
+      position: absolute;
+      border-radius: 50%;
+      border: 2px solid rgba(56, 201, 178, 0.25);
+      animation: pulse 2s infinite ease-out;
+    }
+    .rc-1 { width: 90px; height: 90px; }
+    .rc-2 { width: 150px; height: 150px; animation-delay: 0.5s; }
+    .rc-3 { width: 200px; height: 200px; animation-delay: 1s; }
+    .scan-beam {
+      position: absolute;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent 0%, var(--primary-mint) 50%, transparent 100%);
+      top: 20%;
+      animation: scan 2s infinite alternate ease-in-out;
+    }
+    @keyframes scan { 0% { top: 15%; } 100% { top: 85%; } }
+    @keyframes pulse { 0% { transform: scale(0.85); opacity: 0.8; } 100% { transform: scale(1.15); opacity: 0; } }
+
+    /* =========================================================
+       [Step 5-2] AI 체형 분석 결과 화면
+       ========================================================= */
+    #screen-result {
+      padding: 0 0 24px 0;
+    }
+    .result-top-banner {
+      background: var(--banner-gradient);
+      padding: 26px 20px 22px 20px;
+      color: var(--white);
+      border-bottom-left-radius: 28px;
+      border-bottom-right-radius: 28px;
+      box-shadow: var(--shadow-mint);
+    }
+    .result-wrap {
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .result-card {
+      background: var(--white);
+      border: 1.5px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+    }
+    .result-scores {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-light);
+    }
+    .score-num {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--primary-mint-dark);
+    }
+    .score-txt {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .fit-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .fit-box {
+      padding: 14px;
+      border-radius: var(--radius-md);
+      font-size: 12px;
+    }
+    .fit-best { background: #f1fbf8; border: 1px solid var(--border-mint); }
+    .fit-worst { background: #fff8f6; border: 1px solid #ffd8d2; }
+    .fit-box ul { list-style: none; line-height: 1.6; color: var(--text-sub); }
+
+    /* =========================================================
+       [Step 6] 메인 홈 화면 (첨부 2)
+       ========================================================= */
+    #screen-home {
+      padding: 16px 18px 74px 18px;
+      background: #fafdfc;
+    }
+    .home-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .home-greeting {
+      font-size: 21px;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.4px;
+    }
+    .avatar-icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1.5px solid #dbe6e4;
+      background: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-sub);
+      cursor: pointer;
+    }
+    /* 결과 요약 민트 배너 */
+    .home-banner {
+      background: var(--banner-gradient);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      color: var(--white);
+      box-shadow: 0 8px 18px rgba(56, 201, 178, 0.28);
+      margin-bottom: 22px;
+    }
+    .banner-btn {
+      display: inline-block;
+      background: var(--white);
+      color: var(--primary-mint-dark);
+      font-size: 13px;
+      font-weight: 800;
+      padding: 7px 18px;
+      border-radius: var(--radius-full);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .home-sec-title {
+      font-size: 17.5px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 12px;
+      letter-spacing: -0.3px;
+    }
+    /* 4개 주요 서비스 그리드 */
+    .services-2x2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .srv-card {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 20px 14px;
+      text-align: center;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 4px 14px rgba(25, 60, 52, 0.05);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: var(--transition);
+    }
+    .srv-card:active {
+      transform: scale(0.97);
+    }
+    .srv-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    /* 추천 아이템 스크롤 */
+    .scroll-row {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      margin: 0 -18px;
+      padding: 0 18px 10px 18px;
+      scrollbar-width: none;
+    }
+    .scroll-row::-webkit-scrollbar { display: none; }
+    .product-card {
+      flex: 0 0 120px;
+      background: var(--white);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--border-light);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+    }
+    .product-img {
+      width: 100%;
+      height: 130px;
+      background: #f1f5f4;
+    }
+    .product-meta {
+      padding: 8px;
+    }
+    .product-price {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .product-tag {
+      font-size: 10.5px;
+      color: var(--primary-mint-dark);
+      font-weight: 700;
+    }
+
+    /* 하단 고정 탭바 */
+    .nav-tab-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 64px;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 8px;
+      z-index: 90;
+    }
+    .tab-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 10.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tab-item.active {
+      color: var(--primary-mint);
+    }
+
+    /* =========================================================
+       [Step 7-1 ~ 7-4] 4대 부가 서비스 화면 스타일
+       ========================================================= */
+    .sub-page-body {
+      padding: 16px 20px 80px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .info-card {
+      background: var(--white);
+      border: 1.5px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+    }
+    .dim-row {
+      margin-bottom: 12px;
+    }
+    .dim-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12.5px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .dim-track {
+      width: 100%;
+      height: 7px;
+      background: #ebf2f0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .dim-bar {
+      height: 100%;
+      background: var(--primary-mint);
+    }
+    /* 스트레칭 루틴 */
+    .routine-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      background: var(--white);
+      border: 1.5px solid var(--border-light);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+    }
+    .routine-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      background: var(--primary-mint-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary-mint-dark);
+      flex-shrink: 0;
+    }
+    /* 룩북 & 중고마켓 */
+    .chip-scroll {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      margin: 0 -20px;
+      padding: 0 20px;
+    }
+    .chip-scroll::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      padding: 7px 14px;
+      border-radius: var(--radius-full);
+      background: #edf3f1;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-sub);
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .filter-chip.active {
+      background: var(--primary-mint);
+      color: var(--white);
+    }
+    .lookbook-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .look-card {
+      background: var(--white);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .look-img {
+      width: 100%;
+      height: 160px;
+      background: #edf3f1;
+    }
+    /* 토글 스위치 */
+    .switch-ui {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 24px;
+    }
+    .switch-ui input { opacity: 0; width: 0; height: 0; }
+    .switch-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #cbd8d4;
+      border-radius: 24px;
+      transition: .25s;
+    }
+    .switch-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: .25s;
+    }
+    input:checked + .switch-slider { background: var(--primary-mint); }
+    input:checked + .switch-slider:before { transform: translateX(18px); }
+
+    /* 모달 */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 26, 24, 0.55);
+      z-index: 500;
+      display: none;
+      align-items: flex-end;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-popup {
+      width: 100%;
+      background: var(--white);
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      padding: 22px;
+      max-height: 80%;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PC 환경용 뷰 토글 -->
+  <div class="view-mode-toggle" id="viewModeToggle">
+    <span>전체 화면 모드</span>
+  </div>
+
+  <!-- 메인 모바일 앱 컨테이너 -->
+  <div class="app-container" id="appContainer">
+
+    <!-- PC 전용 상단 노치 -->
+    <div class="phone-notch">
+      <div class="phone-speaker"></div>
+      <div class="phone-camera-lens"></div>
+    </div>
+
+    <!-- PC 전용 상태바 -->
+    <div class="status-bar">
+      <span id="systemClock">09:41</span>
+      <div class="icons">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9z"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="7" width="18" height="10" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><path d="M21 10v4" stroke="currentColor" stroke-width="2"/></svg>
+      </div>
+    </div>
+
+    <!-- 메인 뷰포트 -->
+    <div class="screen-viewport">
+
+      <!-- ========================================================
+           [Step 1] 온보딩 / 스플래시 화면 (첨부 1 재현)
+           ======================================================== -->
+      <section class="screen active" id="screen-splash">
+        <div style="margin-top:10px;">
+          <div class="brand-logo-badge">MirrorFit AI</div>
+          <h1 class="splash-title">내 손안의 퍼스널<br>스타일리스트</h1>
+        </div>
+
+        <!-- 바디 일러스트 그래픽 (첨부 1 정밀 재현) -->
+        <div class="splash-graphic-wrap">
+          <div class="circle-mint-bg"></div>
+          <div class="circle-coral-1"></div>
+          <div class="circle-coral-2"></div>
+
+          <svg class="graphic-svg-body" viewBox="0 0 200 280" fill="none">
+            <rect x="35" y="45" width="130" height="170" stroke="#38c9b2" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.6"/>
+            <!-- 머리 & 목 -->
+            <polygon points="100,20 112,32 108,52 92,52 88,32" fill="#58d8c2" opacity="0.85"/>
+            <polygon points="95,52 105,52 100,62" fill="#38c9b2"/>
+            <polygon points="100,62 128,70 100,84" fill="#a4eedf" opacity="0.8"/>
+            <polygon points="100,62 72,70 100,84" fill="#36caa9" opacity="0.9"/>
+            <!-- 가슴 & 팔 -->
+            <polygon points="72,70 60,110 88,118 100,84" fill="#2ebfa4" opacity="0.85"/>
+            <polygon points="128,70 140,110 112,118 100,84" fill="#c3f5ec" opacity="0.9"/>
+            <polygon points="72,70 60,110 52,145 60,145" fill="#25a890" opacity="0.7"/>
+            <polygon points="128,70 140,110 148,145 140,145" fill="#a9ebe0" opacity="0.85"/>
+            <!-- 복부 & 골반 -->
+            <polygon points="100,84 88,118 100,148" fill="#38c9b2"/>
+            <polygon points="100,84 112,118 100,148" fill="#b9f3e9" opacity="0.95"/>
+            <polygon points="88,118 78,160 100,172 100,148" fill="#29b399" opacity="0.9"/>
+            <polygon points="112,118 122,160 100,172 100,148" fill="#c9f7ef" opacity="0.95"/>
+            <!-- 다리 -->
+            <polygon points="78,160 84,215 98,215 100,172" fill="#23a48c" opacity="0.85"/>
+            <polygon points="84,215 86,255 96,255 98,215" fill="#30b89f" opacity="0.9"/>
+            <polygon points="86,255 78,265 96,265" fill="#249680"/>
+            <polygon points="122,160 116,215 102,215 100,172" fill="#9deade" opacity="0.8"/>
+            <polygon points="116,215 114,255 104,255 102,215" fill="#c2f5ed" opacity="0.9"/>
+            <polygon points="114,255 122,265 104,265" fill="#75decc"/>
+            <!-- 포인트 -->
+            <circle cx="72" cy="70" r="3.5" fill="#ff7e67"/>
+            <circle cx="128" cy="70" r="3.5" fill="#ff7e67"/>
+            <circle cx="100" cy="172" r="3" fill="#ff7e67"/>
+          </svg>
+        </div>
+
+        <p class="splash-desc">
+          <strong>AI 체형 분석</strong>으로 당신에게 꼭 맞는<br>
+          핏(Fit)과 스타일을 찾아드립니다.
+        </p>
+
+        <div>
+          <button class="btn-primary" id="btnStartOnboarding">시작하기</button>
+          <div class="splash-dots">
+            <span class="splash-dot"></span>
+            <span class="splash-dot active"></span>
+            <span class="splash-dot"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           [Step 2-1] 로그인 화면
+           ======================================================== -->
+      <section class="screen" id="screen-login">
+        <div class="login-header">
+          <div class="brand-logo-badge">MirrorFit</div>
+          <h2>간편하게 시작하기</h2>
+          <p>내 체형 분석 데이터를 안전하게 보관합니다</p>
+        </div>
+
+        <div style="margin-bottom:20px;">
+          <div class="input-group">
+            <label>닉네임 / 사용자 이름</label>
+            <input type="text" id="userNameInput" value="산혜" placeholder="이름을 입력하세요">
+          </div>
+          <div class="input-group">
+            <label>이메일 계정</label>
+            <input type="email" id="userEmailInput" value="sanhye@mirrorfit.io" placeholder="name@email.com">
+          </div>
+          <button class="btn-primary" id="btnLoginSubmit">미러핏으로 계속하기</button>
+        </div>
+
+        <div class="social-divider"><span>또는 간편 로그인</span></div>
+        <button class="btn-kakao" id="btnKakaoLogin">카카오 1초 로그인</button>
+        <button class="btn-naver" id="btnNaverLogin">네이버 아이디로 로그인</button>
+      </section>
+
+      <!-- ========================================================
+           [Step 2-2] 3대 골격 체형 전문 가이드 화면
+           ======================================================== -->
+      <section class="screen" id="screen-guide">
+        <header class="nav-header">
+          <button class="btn-back" id="btnBackToLogin">&lt;</button>
+          <span class="header-title">골격 체형 가이드</span>
+          <div style="width:36px;"></div>
+        </header>
+
+        <div class="guide-box">
+          <h3 style="font-size:19px; font-weight:800; text-align:center;">나의 타고난 골격 타입은?</h3>
+          <p style="font-size:13px; color:var(--text-sub); text-align:center; margin-top:4px;">
+            골격 구조와 볼륨 축에 따라 3대 체형으로 구분됩니다.
+          </p>
+
+          <!-- 3대 체형 탭 -->
+          <div class="body-type-tabs">
+            <button class="body-tab-btn active" data-tab="straight">스트레이트</button>
+            <button class="body-tab-btn" data-tab="wave">웨이브</button>
+            <button class="body-tab-btn" data-tab="natural">내추럴</button>
+          </div>
+
+          <!-- 스트레이트 카드 -->
+          <div class="body-type-card active" id="tab-straight">
+            <div class="card-head">
+              <span style="font-size:18px; font-weight:800;">스트레이트 체형</span>
+              <span class="brand-logo-badge" style="margin:0;">입체감 &amp; 탄력</span>
+            </div>
+            <div class="card-visual-box">
+              <svg width="90" height="120" viewBox="0 0 100 130" fill="none">
+                <circle cx="50" cy="25" r="14" fill="#38c9b2"/>
+                <path d="M34 45 L50 40 L66 45 L70 70 L62 76 L50 76 L38 76 L30 70 Z" fill="#4fe0c8" opacity="0.9"/>
+                <path d="M35 76 L37 120 L45 120 L47 76 Z" fill="#2ca894"/>
+                <path d="M65 76 L63 120 L55 120 L53 76 Z" fill="#38c9b2"/>
+              </svg>
+            </div>
+            <div class="type-desc-list">
+              <div class="desc-item">
+                <span class="tag">신체 특징</span>
+                <span>상체 중심의 입체적인 볼륨감, 탄력 있는 피부결, 쇄골이 덜 도드라지고 허리 위치가 높음</span>
+              </div>
+              <div class="desc-item">
+                <span class="tag">추천 스타일</span>
+                <span>클래식 스탠다드 핏, V넥 셔츠, 일자 슬랙스, 각 잡힌 고급 코튼/울 소재</span>
+              </div>
+              <div class="desc-item">
+                <span class="tag">피할 스타일</span>
+                <span>과도한 퍼프 소매, 루즈핏 오버사이즈, 얇고 흐물거리는 소재</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 웨이브 카드 -->
+          <div class="body-type-card" id="tab-wave">
+            <div class="card-head">
+              <span style="font-size:18px; font-weight:800;">웨이브 체형</span>
+              <span class="brand-logo-badge" style="margin:0;">우아한 곡선미</span>
+            </div>
+            <div class="card-visual-box">
+              <svg width="90" height="120" viewBox="0 0 100 130" fill="none">
+                <circle cx="50" cy="25" r="12" fill="#38c9b2"/>
+                <path d="M38 46 L50 42 L62 46 L60 68 C58 72 55 74 50 74 C45 74 42 72 40 68 Z" fill="#4fe0c8" opacity="0.9"/>
+                <path d="M37 74 C31 84 32 102 36 120 L44 120 C42 102 44 88 47 75 Z" fill="#2ca894"/>
+                <path d="M63 74 C69 84 68 102 64 120 L56 120 C58 102 56 88 53 75 Z" fill="#38c9b2"/>
+              </svg>
+            </div>
+            <div class="type-desc-list">
+              <div class="desc-item">
+                <span class="tag">신체 특징</span>
+                <span>가녀린 상체와 긴 목선, 뚜렷한 쇄골, 허리선이 길고 힙 볼륨이 하체에 집중</span>
+              </div>
+              <div class="desc-item">
+                <span class="tag">추천 스타일</span>
+                <span>하이웨이스트, 크롭 상의, 부드러운 쉬폰/트위드, A라인 스커트</span>
+              </div>
+              <div class="desc-item">
+                <span class="tag">피할 스타일</span>
+                <span>깊게 파인 V넥, 긴 로우웨이스트, 무겁고 뻣뻣한 데님</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 내추럴 카드 -->
+          <div class="body-type-card" id="tab-natural">
+            <div class="card-head">
+              <span style="font-size:18px; font-weight:800;">내추럴 체형</span>
+              <span class="brand-logo-badge" style="margin:0;">스타일리시 골격</span>
+            </div>
+            <div class="card-visual-box">
+              <svg width="90" height="120" viewBox="0 0 100 130" fill="none">
+                <circle cx="50" cy="25" r="13" fill="#38c9b2"/>
+                <path d="M32 46 L50 42 L68 46 L64 72 L36 72 Z" fill="#4fe0c8" opacity="0.9"/>
+                <path d="M36 72 L36 120 L45 120 L48 72 Z" fill="#2ca894"/>
+                <path d="M64 72 L64 120 L55 120 L52 72 Z" fill="#38c9b2"/>
+              </svg>
+            </div>
+            <div class="type-desc-list">
+              <div class="desc-item">
+                <span class="tag">신체 특징</span>
+                <span>어깨 관절과 골격 프레임이 또렷함, 신체 라인이 중성적이고 긴 편</span>
+              </div>
+              <div class="desc-item">
+                <span class="tag">추천 스타일</span>
+                <span>오버사이즈 자켓, 롱 와이드 팬츠, 린넨/코듀로이 등 내추럴한 질감</span>
+              </div>
+              <div class="desc-item">
+                <span class="tag">피할 스타일</span>
+                <span>타이트하게 달라붙는 스키니핏, 화려하고 작은 악세사리</span>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-primary" id="btnStartCapture" style="margin-top:20px;">다음 (내 체형 분석하기)</button>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           [Step 3] AI 사진 촬영 / 첨부 (첨부 3 좌측 재현)
+           ======================================================== -->
+      <section class="screen" id="screen-capture">
+        <header class="nav-header" style="background:#1b2422; border-bottom:1px solid #2d3835;">
+          <button class="btn-back" id="btnBackToGuide" style="color:#ffffff;">&lt;</button>
+          <span class="header-title" style="color:#ffffff;">체형 분석 사진 촬영</span>
+          <div style="width:36px;"></div>
+        </header>
+
+        <!-- 카메라 뷰 및 가이드라인 -->
+        <div class="camera-container">
+          <img class="camera-preview-img" id="cameraPreviewImg" src="" alt="미리보기" style="display:none;">
+
+          <div class="camera-crosshair"></div>
+
+          <!-- 신체 와이어프레임 가이드 -->
+          <svg class="body-guide-svg" viewBox="0 0 100 220" fill="none">
+            <circle cx="50" cy="20" r="12" stroke="#38c9b2" stroke-width="1.8" fill="rgba(56, 201, 178, 0.15)"/>
+            <path d="M30 40 L50 34 L70 40 L76 75 L66 110 L50 120 L34 110 L24 75 Z" stroke="#38c9b2" stroke-width="1.8" stroke-dasharray="2 2" fill="rgba(56, 201, 178, 0.1)"/>
+            <path d="M34 110 L28 175 L38 210 L48 210 L48 120" stroke="#38c9b2" stroke-width="1.8"/>
+            <path d="M66 110 L72 175 L62 210 L52 210 L52 120" stroke="#38c9b2" stroke-width="1.8"/>
+          </svg>
+
+          <!-- 첨부 3 말풍선 4종 -->
+          <div class="pin-bubble pin-neck">목 둘레, 목 길이</div>
+          <div class="pin-bubble pin-shoulder">어깨 너비</div>
+          <div class="pin-bubble pin-waist">허리 길이</div>
+          <div class="pin-bubble pin-arm">팔 길이</div>
+        </div>
+
+        <div class="capture-bottom-bar">
+          <p style="font-size:12px; color:#a4b6b1;">정확한 분석을 위해 전신이 나오도록 촬영해 주세요.</p>
+          <div class="capture-controls">
+            <!-- 갤러리 파일 업로드 -->
+            <label class="btn-icon-sq" title="사진 첨부하기" style="cursor:pointer;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+              <input type="file" id="filePhotoInput" accept="image/*" style="display:none;">
+            </label>
+
+            <!-- 메인 촬영 버튼 -->
+            <button class="btn-primary" id="btnTriggerCapture" style="flex:1;">촬영하기</button>
+
+            <!-- 모델 예시 사진 토글 -->
+            <button class="btn-icon-sq" id="btnToggleSamplePhoto" title="예시 모델 사진">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           [Step 4] 사전 설문조사 (첨부 3 우측 재현)
+           ======================================================== -->
+      <section class="screen" id="screen-survey">
+        <header class="nav-header">
+          <button class="btn-back" id="btnBackToCapture">&lt;</button>
+          <span class="header-title">사전 설문조사</span>
+          <div style="width:36px;"></div>
+        </header>
+
+        <div class="survey-progress-box">
+          <div class="progress-meta">
+            <span>설문조사 1 / 3</span>
+            <span>33%</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill"></div></div>
+        </div>
+
+        <div style="padding:14px 20px 4px 20px;">
+          <h2 style="font-size:21px; font-weight:800;">신체 정보를 입력해주세요</h2>
+          <p style="font-size:13px; color:var(--text-sub);">AI가 사진과 데이터를 결합하여 정밀 진단합니다.</p>
+        </div>
+
+        <div class="survey-body">
+          <!-- 1. 기본 정보 (키, 몸무게) -->
+          <div class="survey-group">
+            <div class="survey-label">1. 기본 신체 스펙</div>
+            <div class="form-2col">
+              <div class="select-pill">
+                <select id="surveyHeight">
+                  <option value="155">155 cm</option>
+                  <option value="160">160 cm</option>
+                  <option value="165" selected>165 cm</option>
+                  <option value="170">170 cm</option>
+                  <option value="175">175 cm</option>
+                </select>
+                <span class="select-arrow">▼</span>
+              </div>
+              <div class="select-pill">
+                <select id="surveyWeight">
+                  <option value="48">48 kg</option>
+                  <option value="52">52 kg</option>
+                  <option value="55" selected>55 kg</option>
+                  <option value="60">60 kg</option>
+                  <option value="65">65 kg</option>
+                </select>
+                <span class="select-arrow">▼</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. 성별 -->
+          <div class="survey-group">
+            <div class="survey-label">2. 성별</div>
+            <div class="chip-2col">
+              <button class="chip-btn active" data-gender="female">여성</button>
+              <button class="chip-btn" data-gender="male">남성</button>
+            </div>
+          </div>
+
+          <!-- 3. 어깨 쇄골 -->
+          <div class="survey-group">
+            <div class="survey-label">3. 어깨 및 쇄골 골격</div>
+            <div class="chip-3col">
+              <button class="chip-btn active" data-shoulder="straight">도톰 &amp; 탄력</button>
+              <button class="chip-btn" data-shoulder="wave">가녀림 &amp; 쇄골</button>
+              <button class="chip-btn" data-shoulder="natural">넓고 각진 뼈대</button>
+            </div>
+          </div>
+
+          <!-- 4. 허리 골반 -->
+          <div class="survey-group">
+            <div class="survey-label">4. 허리 둘레 및 골반 위치</div>
+            <div class="chip-2col">
+              <button class="chip-btn active" data-waist="high">골반 높고 허리 뚜렷</button>
+              <button class="chip-btn" data-waist="long">허리선 길고 완만함</button>
+            </div>
+          </div>
+
+          <!-- 5. 평소 고민 부위 (복수 선택 - 첨부 3) -->
+          <div class="survey-group">
+            <div class="survey-label">5. 평소 고민 부위 <small>(복수 선택 가능)</small></div>
+            <div class="chip-2col">
+              <button class="chip-btn chip-multi" data-worry="shoulder">어깨</button>
+              <button class="chip-btn chip-multi active" data-worry="waist">허리</button>
+              <button class="chip-btn chip-multi" data-worry="hip">엉덩이</button>
+              <button class="chip-btn chip-multi active" data-worry="thigh">허벅지</button>
+            </div>
+          </div>
+
+          <!-- 6. 체중 증가 패턴 -->
+          <div class="survey-group">
+            <div class="survey-label">6. 체중 증가 시 살이 붙는 패턴</div>
+            <div class="chip-3col">
+              <button class="chip-btn active" data-fat="upper">상체/팔뚝</button>
+              <button class="chip-btn" data-fat="lower">하체/엉덩이</button>
+              <button class="chip-btn" data-fat="all">전신 골고루</button>
+            </div>
+          </div>
+
+          <button class="btn-primary" id="btnSubmitSurvey" style="margin-top:10px;">AI 체형 분석 시작하기</button>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           [Step 5-1] AI 분석 로딩 화면
+           ======================================================== -->
+      <section class="screen" id="screen-loading">
+        <div class="radar-box">
+          <div class="radar-circle rc-1"></div>
+          <div class="radar-circle rc-2"></div>
+          <div class="radar-circle rc-3"></div>
+          <div class="scan-beam"></div>
+          <svg width="50" height="75" viewBox="0 0 60 90" fill="none">
+            <circle cx="30" cy="18" r="10" fill="#38c9b2"/>
+            <path d="M18 34 L30 30 L42 34 L45 60 L38 85 L22 85 L15 60 Z" fill="#38c9b2" opacity="0.6"/>
+          </svg>
+        </div>
+        <h3 style="font-size:19px; font-weight:800; margin-bottom:8px;">AI가 체형을 분석하고 있습니다</h3>
+        <p style="font-size:13.5px; color:var(--primary-mint-dark); font-weight:700;" id="loadingStatusText">신체 랜드마크 33개 포인트 측정 중...</p>
+      </section>
+
+      <!-- ========================================================
+           [Step 5-2] AI 분석 결과 화면
+           ======================================================== -->
+      <section class="screen" id="screen-result">
+        <div class="result-top-banner">
+          <span style="font-size:12px; font-weight:800; background:rgba(255,255,255,0.25); padding:3px 10px; border-radius:12px;">AI 분석 완료</span>
+          <h2 style="font-size:22px; font-weight:800; margin-top:6px;" id="resultTitle">당신의 체형은 '스트레이트'</h2>
+          <p style="font-size:13px; opacity:0.9;">입체적인 볼륨감과 탄력 있는 균형 잡힌 실루엣</p>
+        </div>
+
+        <div class="result-wrap">
+          <div class="result-card">
+            <div class="brand-logo-badge" id="resultSubBadge">상체 중심 입체형</div>
+            <div id="resultSvgBox" style="height:150px; display:flex; align-items:center; justify-content:center; margin:10px 0;">
+              <!-- 동적 SVG -->
+            </div>
+            <div class="result-scores">
+              <div>
+                <div class="score-num">94점</div>
+                <div class="score-txt">신체 밸런스</div>
+              </div>
+              <div>
+                <div class="score-num">1:1.6</div>
+                <div class="score-txt">황금 비율 지수</div>
+              </div>
+              <div>
+                <div class="score-num">상체 우세</div>
+                <div class="score-txt">볼륨 중심축</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fit-grid">
+            <div class="fit-box fit-best">
+              <div style="font-weight:800; color:var(--primary-mint-dark); margin-bottom:6px;">✔ Best Fit 추천</div>
+              <ul id="resultBestList">
+                <li>클래식 스탠다드 셔츠</li>
+                <li>일자 스트레이트 슬랙스</li>
+                <li>적당한 V넥 &amp; 스퀘어넥</li>
+              </ul>
+            </div>
+            <div class="fit-box fit-worst">
+              <div style="font-weight:800; color:#e75642; margin-bottom:6px;">✖ Worst Fit 주의</div>
+              <ul id="resultWorstList">
+                <li>과도한 프릴 &amp; 퍼프소매</li>
+                <li>루즈핏 오버사이즈 롱니트</li>
+                <li>얇고 주름지는 쉬폰 소재</li>
+              </ul>
+            </div>
+          </div>
+
+          <button class="btn-primary" id="btnGoToHome">미러핏 홈으로 이동하기</button>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           [Step 6] 메인 홈 화면 (첨부 2 재현)
+           ======================================================== -->
+      <section class="screen" id="screen-home">
+        <!-- 상단 헤더 -->
+        <div class="home-header">
+          <h2 class="home-greeting">안녕하세요, <span id="homeUserName">산혜</span>님!</h2>
+          <div class="avatar-icon-btn" id="btnHeaderProfile" title="프로필">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- 체형 분석 결과 요약 민트 배너 (첨부 2) -->
+        <div class="home-banner">
+          <p style="font-size:15px; font-weight:700; margin-bottom:10px;">당신의 체형 분석 결과: '<strong id="homeBannerType">스트레이트형</strong>'</p>
+          <button class="banner-btn" id="btnOpenDetailedReport">상세 리포트 보기</button>
+        </div>
+
+        <!-- 주요 서비스 4대 버튼 (첨부 2) -->
+        <h3 class="home-sec-title">주요 서비스</h3>
+        <div class="services-2x2">
+          <!-- 1. AI 체형 진단 -->
+          <div class="srv-card" id="btnServiceAnalysis">
+            <svg width="40" height="40" viewBox="0 0 44 44" fill="none">
+              <path d="M8 15V8H15" stroke="#38c9b2" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M36 15V8H29" stroke="#38c9b2" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M8 29V36H15" stroke="#38c9b2" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M36 29V36H29" stroke="#38c9b2" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M16 16 C16 16 19 22 22 22 C25 22 28 16 28 16 L30 25 C30 28 26 31 26 34 L18 34 C18 31 14 28 14 25 Z" fill="#ffe0da" stroke="#ff7c65" stroke-width="1.5"/>
+            </svg>
+            <span class="srv-title">AI 체형 진단</span>
+          </div>
+
+          <!-- 2. 맞춤 스타일링 -->
+          <div class="srv-card" id="btnServiceStyling">
+            <svg width="40" height="40" viewBox="0 0 44 44" fill="none">
+              <path d="M22 10 C20 10 19 12 19 13 C19 15 22 16 22 17" stroke="#38c9b2" stroke-width="2" stroke-linecap="round"/>
+              <path d="M12 21 L22 17 L32 21" stroke="#38c9b2" stroke-width="2" stroke-linecap="round"/>
+              <path d="M13 21 L10 27 L15 28 L17 38 L27 38 L29 28 L34 27 L31 21 Z" fill="#bcf5eb" stroke="#25b39c" stroke-width="1.8"/>
+              <line x1="22" y1="23" x2="22" y2="38" stroke="#25b39c" stroke-width="1.5"/>
+            </svg>
+            <span class="srv-title">맞춤 스타일링</span>
+          </div>
+
+          <!-- 3. 자세 교정 -->
+          <div class="srv-card" id="btnServicePosture">
+            <svg width="40" height="40" viewBox="0 0 44 44" fill="none">
+              <circle cx="28" cy="12" r="3.5" fill="#38c9b2"/>
+              <path d="M31 16 L31 38" stroke="#68807b" stroke-width="2" stroke-linecap="round"/>
+              <path d="M22 32 L34 32" stroke="#68807b" stroke-width="2" stroke-linecap="round"/>
+              <path d="M28 17 L28 27 L20 27 L20 38" stroke="#25b39c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="srv-title">자세 교정</span>
+          </div>
+
+          <!-- 4. 연계 중고거래 -->
+          <div class="srv-card" id="btnServiceMarket">
+            <svg width="40" height="40" viewBox="0 0 44 44" fill="none">
+              <path d="M22 12 C20 12 19 14 19 15 C19 17 22 17 22 18" stroke="#38c9b2" stroke-width="2" stroke-linecap="round"/>
+              <path d="M12 23 L22 18 L32 23" stroke="#38c9b2" stroke-width="2" stroke-linecap="round"/>
+              <rect x="22" y="22" width="14" height="12" rx="2" transform="rotate(30 22 22)" fill="#ffb4a6" stroke="#ff6a52" stroke-width="1.5"/>
+              <circle cx="23" cy="27" r="1.5" fill="#ffffff"/>
+            </svg>
+            <span class="srv-title">연계 중고거래</span>
+          </div>
+        </div>
+
+        <!-- 오늘의 추천 아이템 가로 스크롤 (첨부 2) -->
+        <h3 class="home-sec-title">오늘의 추천 아이템</h3>
+        <div class="scroll-row">
+          <div class="product-card" data-p="1">
+            <div class="product-img">
+              <svg width="100%" height="100%" viewBox="0 0 120 130">
+                <rect width="120" height="130" fill="#edf4f2"/>
+                <path d="M40 25 L60 32 L80 25 L88 55 L70 55 L70 120 L50 120 L50 55 L32 55 Z" fill="#ffe5dc"/>
+                <path d="M38 56 L82 56 L90 120 L30 120 Z" fill="#2d3735"/>
+              </svg>
+            </div>
+            <div class="product-meta">
+              <span class="product-tag">내 체형 맞춤</span>
+              <div class="product-price">₩32,000</div>
+            </div>
+          </div>
+
+          <div class="product-card" data-p="2">
+            <div class="product-img">
+              <svg width="100%" height="100%" viewBox="0 0 120 130">
+                <rect width="120" height="130" fill="#f0f3f2"/>
+                <path d="M35 30 L60 35 L85 30 L90 75 L30 75 Z" fill="#202725"/>
+                <rect x="48" y="80" width="24" height="38" rx="2" fill="#ffffff" stroke="#c0d0cc"/>
+              </svg>
+            </div>
+            <div class="product-meta">
+              <span class="product-tag">스트레이트 핏</span>
+              <div class="product-price">₩58,000</div>
+            </div>
+          </div>
+
+          <div class="product-card" data-p="3">
+            <div class="product-img">
+              <svg width="100%" height="100%" viewBox="0 0 120 130">
+                <rect width="120" height="130" fill="#f7f5ef"/>
+                <circle cx="60" cy="50" r="26" fill="#e8dfd8"/>
+                <path d="M45 80 C45 75 75 75 75 80 L80 115 L40 115 Z" fill="#d0c4ba"/>
+              </svg>
+            </div>
+            <div class="product-meta">
+              <span class="product-tag">실루엣 보완</span>
+              <div class="product-price">₩29,000</div>
+            </div>
+          </div>
+
+          <div class="product-card" data-p="4">
+            <div class="product-img">
+              <svg width="100%" height="100%" viewBox="0 0 120 130">
+                <rect width="120" height="130" fill="#eff3f5"/>
+                <path d="M35 35 L60 38 L85 35 L88 85 L32 85 Z" fill="#9db1a8"/>
+                <line x1="45" y1="85" x2="45" y2="125" stroke="#758880" stroke-width="3"/>
+                <line x1="75" y1="85" x2="75" y2="125" stroke="#758880" stroke-width="3"/>
+              </svg>
+            </div>
+            <div class="product-meta">
+              <span class="product-tag">클래식 슬랙스</span>
+              <div class="product-price">₩82,000</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           [Step 7-1] 부가서비스: 체형 상세 분석 리포트 화면
+           ======================================================== -->
+      <section class="screen" id="screen-report-detail">
+        <header class="nav-header">
+          <button class="btn-back" id="btnBackFromReport">&lt;</button>
+          <span class="header-title">상세 체형 분석 리포트</span>
+          <div style="width:36px;"></div>
+        </header>
+
+        <div class="sub-page-body">
+          <div class="info-card">
+            <h4 style="font-size:15px; font-weight:800; margin-bottom:14px;">신체 부위별 황금 밸런스</h4>
+            <div class="dim-row">
+              <div class="dim-meta"><span>어깨 너비 vs 골반 비율</span><span style="color:var(--primary-mint-dark);">1 : 0.98 (완벽 밸런스)</span></div>
+              <div class="dim-track"><div class="dim-bar" style="width:88%;"></div></div>
+            </div>
+            <div class="dim-row">
+              <div class="dim-meta"><span>목 길이 &amp; 쇄골 각도</span><span style="color:var(--primary-mint-dark);">표준 입체형</span></div>
+              <div class="dim-track"><div class="dim-bar" style="width:75%;"></div></div>
+            </div>
+            <div class="dim-row">
+              <div class="dim-meta"><span>상체 길이 vs 하체 비율</span><span style="color:var(--primary-mint-dark);">48% : 52% (롱레그)</span></div>
+              <div class="dim-track"><div class="dim-bar" style="width:82%;"></div></div>
+            </div>
+            <div class="dim-row">
+              <div class="dim-meta"><span>허리-힙 곡선 굴곡도</span><span style="color:var(--primary-mint-dark);">0.72 (탄력 S라인)</span></div>
+              <div class="dim-track"><div class="dim-bar" style="width:92%;"></div></div>
+            </div>
+          </div>
+
+          <div class="info-card">
+            <h4 style="font-size:15px; font-weight:800; margin-bottom:10px;">소재 및 네크라인 매칭</h4>
+            <div style="font-size:13px; color:var(--text-sub); display:flex; flex-direction:column; gap:8px;">
+              <p>✔ <strong>추천 소재:</strong> 고밀도 코튼, 울 100%, 실크 새틴, 탄탄한 레더</p>
+              <p>✔ <strong>추천 넥라인:</strong> V넥, 오픈 카라, 스퀘어넥</p>
+              <p>✔ <strong>기장 팁:</strong> 골반에 걸치는 스탠다드 상의 &amp; 스트레이트 팬츠</p>
+            </div>
+          </div>
+
+          <button class="btn-secondary" id="btnRetakePhoto">체형 재측정 (사진 재촬영)</button>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           [Step 7-2] 부가서비스: 체형/자세 교정 화면
+           ======================================================== -->
+      <section class="screen" id="screen-posture">
+        <header class="nav-header">
+          <button class="btn-back" id="btnBackFromPosture">&lt;</button>
+          <span class="header-title">맞춤 자세 &amp; 체형 교정</span>
+          <div style="width:36px;"></div>
+        </header>
+
+        <div class="sub-page-body">
+          <div style="background:linear-gradient(135deg,#e3f8f4,#c7f3eb); padding:18px; border-radius:var(--radius-lg);">
+            <h3 style="font-size:17px; font-weight:800; color:var(--text-main);">매일 5분 바른 정렬 루틴</h3>
+            <p style="font-size:12.5px; color:var(--text-sub); margin-top:4px;">굽은 어깨와 골반 밸런스를 개선하여 슬림한 옷태를 완성합니다.</p>
+          </div>
+
+          <div class="routine-box">
+            <div class="routine-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
+              </svg>
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:14px; font-weight:700;">라운드숄더 펴기 &amp; 쇄골 열기</div>
+              <div style="font-size:12px; color:var(--text-sub);">벽 대고 W자 팔 벌리기 (30초)</div>
+            </div>
+            <button class="btn-primary btn-timer-trigger" data-sec="30" style="width:60px; height:36px; font-size:12px;">시작</button>
+          </div>
+
+          <div class="routine-box">
+            <div class="routine-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:14px; font-weight:700;">골반 전방경사 교정 브릿지</div>
+              <div style="font-size:12px; color:var(--text-sub);">골반 수평 정렬 운동 (45초)</div>
+            </div>
+            <button class="btn-primary btn-timer-trigger" data-sec="45" style="width:60px; height:36px; font-size:12px;">시작</button>
+          </div>
+
+          <div class="routine-box">
+            <div class="routine-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:14px; font-weight:700;">목선을 살리는 승모근 릴리즈</div>
+              <div style="font-size:12px; color:var(--text-sub);">목 측면 부드럽게 당기기 (30초)</div>
+            </div>
+            <button class="btn-primary btn-timer-trigger" data-sec="30" style="width:60px; height:36px; font-size:12px;">시작</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           [Step 7-3] 부가서비스: 스타일링 추천 화면
+           ======================================================== -->
+      <section class="screen" id="screen-styling">
+        <header class="nav-header">
+          <button class="btn-back" id="btnBackFromStyling">&lt;</button>
+          <span class="header-title">맞춤 스타일링 룩북</span>
+          <div style="width:36px;"></div>
+        </header>
+
+        <div class="sub-page-body">
+          <div class="chip-scroll">
+            <button class="filter-chip active" data-cat="all">전체 룩</button>
+            <button class="filter-chip" data-cat="work">오피스 출근룩</button>
+            <button class="filter-chip" data-cat="date">데이트 &amp; 외출</button>
+            <button class="filter-chip" data-cat="casual">위켄드 캐주얼</button>
+          </div>
+
+          <div class="lookbook-grid">
+            <div class="look-card" data-style-tag="work">
+              <div class="look-img">
+                <svg width="100%" height="100%" viewBox="0 0 140 160">
+                  <rect width="140" height="160" fill="#edf4f2"/>
+                  <path d="M40 25 L70 30 L100 25 L105 75 L35 75 Z" fill="#2d3748"/>
+                  <path d="M48 76 L92 76 L98 150 L42 150 Z" fill="#ffffff" stroke="#cbd5e0"/>
+                </svg>
+              </div>
+              <div style="padding:10px;">
+                <div style="font-size:13.5px; font-weight:700;">클래식 모던 수트</div>
+                <div style="font-size:11px; color:var(--primary-mint-dark); font-weight:700;">#스트레이트최적</div>
+              </div>
+            </div>
+
+            <div class="look-card" data-style-tag="date">
+              <div class="look-img">
+                <svg width="100%" height="100%" viewBox="0 0 140 160">
+                  <rect width="140" height="160" fill="#f9f4f1"/>
+                  <path d="M45 30 L70 35 L95 30 L100 70 L40 70 Z" fill="#e2c8be"/>
+                  <path d="M44 70 L96 70 L110 150 L30 150 Z" fill="#4a5568"/>
+                </svg>
+              </div>
+              <div style="padding:10px;">
+                <div style="font-size:13.5px; font-weight:700;">V넥 니트 &amp; A스커트</div>
+                <div style="font-size:11px; color:var(--primary-mint-dark); font-weight:700;">#쇄골강조 #페미닌</div>
+              </div>
+            </div>
+
+            <div class="look-card" data-style-tag="casual">
+              <div class="look-img">
+                <svg width="100%" height="100%" viewBox="0 0 140 160">
+                  <rect width="140" height="160" fill="#f2f7f6"/>
+                  <path d="M40 25 L70 30 L100 25 L108 65 L32 65 Z" fill="#38c9b2" opacity="0.85"/>
+                  <path d="M40 65 L100 65 L105 150 L35 150 Z" fill="#2b4c7e"/>
+                </svg>
+              </div>
+              <div style="padding:10px;">
+                <div style="font-size:13.5px; font-weight:700;">스퀘어 블라우스&amp;데님</div>
+                <div style="font-size:11px; color:var(--primary-mint-dark); font-weight:700;">#단정캐주얼</div>
+              </div>
+            </div>
+
+            <div class="look-card" data-style-tag="work">
+              <div class="look-img">
+                <svg width="100%" height="100%" viewBox="0 0 140 160">
+                  <rect width="140" height="160" fill="#f4f4f4"/>
+                  <path d="M35 20 L70 26 L105 20 L110 80 L30 80 Z" fill="#bfa084"/>
+                  <path d="M50 82 L90 82 L95 150 L45 150 Z" fill="#1a202c"/>
+                </svg>
+              </div>
+              <div style="padding:10px;">
+                <div style="font-size:13.5px; font-weight:700;">싱글 트렌치 &amp; 슬랙스</div>
+                <div style="font-size:11px; color:var(--primary-mint-dark); font-weight:700;">#시크무드</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           [Step 7-4] 부가서비스: 체형 연계 중고거래 마켓 화면
+           ======================================================== -->
+      <section class="screen" id="screen-market">
+        <header class="nav-header">
+          <button class="btn-back" id="btnBackFromMarket">&lt;</button>
+          <span class="header-title">체형 연계 중고거래</span>
+          <button id="btnOpenSellModal" style="background:none; border:none; color:var(--primary-mint-dark); font-weight:800; cursor:pointer;">판매등록</button>
+        </header>
+
+        <div style="padding:10px 18px; background:var(--primary-mint-soft); border-bottom:1px solid var(--border-mint); display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12.5px; font-weight:700; color:var(--primary-mint-dark);">내 체형(165cm / 스트레이트) 맞춤만 보기</span>
+          <label class="switch-ui">
+            <input type="checkbox" id="marketFitFilter" checked>
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="sub-page-body" style="padding-top:12px;">
+          <!-- 마켓 아이템 1 -->
+          <div class="market-card-row" style="display:flex; gap:12px; padding:12px; background:var(--white); border:1px solid var(--border-light); border-radius:var(--radius-md); cursor:pointer;" data-m-title="자라 클래식 싱글 테일러드 자켓 (M)" data-m-price="₩42,000">
+            <div style="width:80px; height:80px; border-radius:var(--radius-sm); background:#edf4f2; flex-shrink:0;">
+              <svg width="100%" height="100%" viewBox="0 0 80 80">
+                <path d="M25 18 L40 22 L55 18 L60 50 L20 50 Z" fill="#2d3748"/>
+                <path d="M25 50 L55 50 L60 76 L20 76 Z" fill="#38c9b2" opacity="0.8"/>
+              </svg>
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; justify-content:space-between;">
+              <div>
+                <span style="font-size:10.5px; font-weight:800; background:#e8f9f5; color:var(--primary-mint-dark); padding:2px 6px; border-radius:4px;">🎯 체형 99% 일치</span>
+                <div style="font-size:13.5px; font-weight:700; color:var(--text-main); margin-top:2px;">자라 클래식 테일러드 자켓 (M)</div>
+                <div style="font-size:11.5px; color:var(--text-muted);">판매자: 165cm / 54kg (스트레이트)</div>
+              </div>
+              <div style="font-size:14.5px; font-weight:800;">₩42,000</div>
+            </div>
+          </div>
+
+          <!-- 마켓 아이템 2 -->
+          <div class="market-card-row" style="display:flex; gap:12px; padding:12px; background:var(--white); border:1px solid var(--border-light); border-radius:var(--radius-md); cursor:pointer;" data-m-title="슬로우앤드 실루엣 핀턱 슬랙스 (S)" data-m-price="₩26,000">
+            <div style="width:80px; height:80px; border-radius:var(--radius-sm); background:#f8f4f0; flex-shrink:0;">
+              <svg width="100%" height="100%" viewBox="0 0 80 80">
+                <path d="M26 16 L40 20 L54 16 L58 40 L22 40 Z" fill="#ffe2d8"/>
+                <path d="M25 41 L55 41 L62 76 L18 76 Z" fill="#1a202c"/>
+              </svg>
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; justify-content:space-between;">
+              <div>
+                <span style="font-size:10.5px; font-weight:800; background:#e8f9f5; color:var(--primary-mint-dark); padding:2px 6px; border-radius:4px;">🎯 체형 98% 일치</span>
+                <div style="font-size:13.5px; font-weight:700; color:var(--text-main); margin-top:2px;">슬로우앤드 핀턱 슬랙스 차콜 (S)</div>
+                <div style="font-size:11.5px; color:var(--text-muted);">판매자: 164cm / 53kg (스트레이트)</div>
+              </div>
+              <div style="font-size:14.5px; font-weight:800;">₩26,000</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /screen-viewport -->
+
+    <!-- ========================================================
+         하단 고정 네비게이션 탭바 (Home 및 서브 화면 노출)
+         ======================================================== -->
+    <nav class="nav-tab-bar" id="bottomNavBar" style="display:none;">
+      <button class="tab-item active" data-nav="screen-home">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Home</span>
+      </button>
+
+      <button class="tab-item" data-nav="screen-report-detail">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        <span>Apply</span>
+      </button>
+
+      <button class="tab-item" data-nav="screen-styling">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>
+        </svg>
+        <span>Shop</span>
+      </button>
+
+      <button class="tab-item" data-nav="screen-market">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        </svg>
+        <span>Community</span>
+      </button>
+
+      <button class="tab-item" data-nav="screen-posture">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span>Posture</span>
+      </button>
+    </nav>
+
+    <!-- PC 전용 하단 인디케이터 바 -->
+    <div class="phone-chin"></div>
+
+  </div><!-- /app-container -->
+
+  <!-- 중고거래 모달 -->
+  <div class="modal-overlay" id="marketModal">
+    <div class="modal-popup">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span class="brand-logo-badge" style="margin:0;">🎯 AI 체형 100% 매칭</span>
+        <button id="btnCloseMarketModal" style="background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted);">&times;</button>
+      </div>
+      <h3 id="modalMTitle" style="font-size:17px; font-weight:800; margin-bottom:4px;">자라 클래식 테일러드 자켓</h3>
+      <p id="modalMPrice" style="font-size:19px; font-weight:800; color:var(--primary-mint-dark); margin-bottom:12px;">₩42,000</p>
+      <div style="background:var(--primary-mint-soft); padding:10px; border-radius:10px; font-size:12.5px; color:var(--text-sub); margin-bottom:16px;">
+        💡 <strong>AI 피팅 보증 코멘트:</strong><br>
+        "판매자님과 동일한 스트레이트 체형으로, 어깨 라인이 직각으로 잡혀 상체 볼륨을 가장 슬림하고 우아하게 표현합니다."
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-secondary" id="btnChatModal">1:1 피팅 문의 채팅</button>
+        <button class="btn-primary" id="btnBuyModal">안전 결제하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 스트레칭 타이머 모달 -->
+  <div class="modal-overlay" id="timerModal">
+    <div class="modal-popup" style="text-align:center;">
+      <h3 style="font-size:18px; font-weight:800;">스트레칭 진행 중</h3>
+      <p style="font-size:13px; color:var(--text-sub); margin-top:4px;">어깨를 바르게 펴고 편안히 호흡하세요</p>
+      <div style="font-size:52px; font-weight:900; color:var(--primary-mint-dark); margin:18px 0;" id="timerDisplay">30s</div>
+      <button class="btn-primary" id="btnFinishTimer">스트레칭 완료</button>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       자바스크립트 로직 (단일 파일 완전 내장)
+       ======================================================== -->
+  <script>
+    (function() {
+      // 1. 상태 객체
+      const state = {
+        userName: '산혜',
+        bodyType: '스트레이트',
+        height: 165,
+        weight: 55,
+        capturedPhoto: null,
+        history: []
+      };
+
+      // 2. 시계
+      function updateClock() {
+        const el = document.getElementById('systemClock');
+        if (!el) return;
+        const now = new Date();
+        el.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      }
+      updateClock();
+      setInterval(updateClock, 10000);
+
+      // PC 모드 토글
+      const viewModeToggle = document.getElementById('viewModeToggle');
+      if (viewModeToggle) {
+        viewModeToggle.addEventListener('click', function() {
+          document.body.classList.toggle('full-mode');
+          const isFull = document.body.classList.contains('full-mode');
+          viewModeToggle.querySelector('span').textContent = isFull ? '모바일 프레임 모드' : '전체 화면 모드';
+        });
+      }
+
+      // 3. 화면 라우팅
+      const screens = document.querySelectorAll('.screen');
+      const bottomNavBar = document.getElementById('bottomNavBar');
+      const tabItems = document.querySelectorAll('.tab-item');
+
+      function showScreen(id, pushHistory = true) {
+        const cur = document.querySelector('.screen.active');
+        if (cur && pushHistory && cur.id !== id) {
+          state.history.push(cur.id);
+        }
+        screens.forEach(s => s.classList.remove('active'));
+        const target = document.getElementById(id);
+        if (target) {
+          target.classList.add('active');
+          target.scrollTop = 0;
+        }
+
+        const subScreens = ['screen-home', 'screen-report-detail', 'screen-posture', 'screen-styling', 'screen-market'];
+        if (subScreens.includes(id)) {
+          bottomNavBar.style.display = 'flex';
+          tabItems.forEach(t => {
+            if (t.getAttribute('data-nav') === id) t.classList.add('active');
+            else t.classList.remove('active');
+          });
+        } else {
+          bottomNavBar.style.display = 'none';
+        }
+      }
+
+      function goBack() {
+        if (state.history.length > 0) {
+          showScreen(state.history.pop(), false);
+        } else {
+          showScreen('screen-home', false);
+        }
+      }
+
+      // 탭 네비 클릭
+      tabItems.forEach(t => {
+        t.addEventListener('click', function() {
+          const navId = t.getAttribute('data-nav');
+          if (navId) showScreen(navId);
+        });
+      });
+
+      // [Step 1] 온보딩
+      document.getElementById('btnStartOnboarding').addEventListener('click', function() {
+        showScreen('screen-login');
+      });
+
+      // [Step 2-1] 로그인
+      function doLogin() {
+        const nameVal = document.getElementById('userNameInput').value.trim();
+        if (nameVal) state.userName = nameVal;
+        document.getElementById('homeUserName').textContent = state.userName;
+        showScreen('screen-guide');
+      }
+      document.getElementById('btnLoginSubmit').addEventListener('click', doLogin);
+      document.getElementById('btnKakaoLogin').addEventListener('click', doLogin);
+      document.getElementById('btnNaverLogin').addEventListener('click', doLogin);
+      document.getElementById('btnBackToLogin').addEventListener('click', function() {
+        showScreen('screen-login', false);
+      });
+
+      // [Step 2-2] 체형 가이드 탭
+      const tabBtns = document.querySelectorAll('.body-tab-btn');
+      const cards = document.querySelectorAll('.body-type-card');
+      tabBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const key = btn.getAttribute('data-tab');
+          tabBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          cards.forEach(c => {
+            c.classList.remove('active');
+            if (c.id === `tab-${key}`) c.classList.add('active');
+          });
+        });
+      });
+      document.getElementById('btnStartCapture').addEventListener('click', function() {
+        showScreen('screen-capture');
+      });
+
+      // [Step 3] 사진 촬영/업로드
+      document.getElementById('btnBackToGuide').addEventListener('click', function() {
+        showScreen('screen-guide', false);
+      });
+
+      const fileInput = document.getElementById('filePhotoInput');
+      const previewImg = document.getElementById('cameraPreviewImg');
+      const triggerBtn = document.getElementById('btnTriggerCapture');
+
+      fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function(evt) {
+            previewImg.src = evt.target.result;
+            previewImg.style.display = 'block';
+            state.capturedPhoto = evt.target.result;
+            triggerBtn.textContent = '사진 확인 후 설문 진행';
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      // 예시 사진 토글
+      const sampleSvg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="700" viewBox="0 0 400 700"><rect width="400" height="700" fill="%232b3834"/><circle cx="200" cy="150" r="45" fill="%2338c9b2" opacity="0.6"/><path d="M140 240 L260 240 L280 430 L230 450 L240 650 L210 650 L200 480 L190 650 L160 650 L170 450 L120 430 Z" fill="%2338c9b2" opacity="0.45"/></svg>';
+      document.getElementById('btnToggleSamplePhoto').addEventListener('click', function() {
+        previewImg.src = sampleSvg;
+        previewImg.style.display = 'block';
+        triggerBtn.textContent = '사진 확인 후 설문 진행';
+      });
+
+      triggerBtn.addEventListener('click', function() {
+        showScreen('screen-survey');
+      });
+
+      // [Step 4] 설문조사
+      document.getElementById('btnBackToCapture').addEventListener('click', function() {
+        showScreen('screen-capture', false);
+      });
+
+      // 칩 단일 선택
+      function setupSingleChip(attr) {
+        document.querySelectorAll(`[${attr}]`).forEach(btn => {
+          btn.addEventListener('click', function() {
+            document.querySelectorAll(`[${attr}]`).forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+          });
+        });
+      }
+      setupSingleChip('data-gender');
+      setupSingleChip('data-shoulder');
+      setupSingleChip('data-waist');
+      setupSingleChip('data-fat');
+
+      // 칩 복수 선택 (고민 부위)
+      document.querySelectorAll('.chip-multi').forEach(btn => {
+        btn.addEventListener('click', function() {
+          btn.classList.toggle('active');
+        });
+      });
+
+      // 설문 제출 -> AI 분석 시작
+      document.getElementById('btnSubmitSurvey').addEventListener('click', function() {
+        const activeShoulder = document.querySelector('[data-shoulder].active');
+        const shVal = activeShoulder ? activeShoulder.getAttribute('data-shoulder') : 'straight';
+        
+        if (shVal === 'straight') state.bodyType = '스트레이트';
+        else if (shVal === 'wave') state.bodyType = '웨이브';
+        else state.bodyType = '내추럴';
+
+        showScreen('screen-loading');
+        runLoading();
+      });
+
+      // [Step 5] AI 로딩 & 결과 렌더링
+      function runLoading() {
+        const textEl = document.getElementById('loadingStatusText');
+        const msgs = [
+          '신체 랜드마크 33개 포인트 측정 중...',
+          '목 길이, 어깨 너비, 골반 비율 교차 분석 중...',
+          '개인 맞춤 황금 밸런스 및 체형 산출 완료!'
+        ];
+        let idx = 0;
+        const timer = setInterval(function() {
+          idx++;
+          if (idx < msgs.length) {
+            textEl.textContent = msgs[idx];
+          } else {
+            clearInterval(timer);
+            renderResult();
+            showScreen('screen-result');
+          }
+        }, 800);
+      }
+
+      function renderResult() {
+        document.getElementById('resultTitle').textContent = `당신의 체형은 '${state.bodyType}'`;
+        document.getElementById('homeBannerType').textContent = `${state.bodyType}형`;
+
+        const svgBox = document.getElementById('resultSvgBox');
+        const subBadge = document.getElementById('resultSubBadge');
+        const bestList = document.getElementById('resultBestList');
+        const worstList = document.getElementById('resultWorstList');
+
+        if (state.bodyType === '스트레이트') {
+          subBadge.textContent = '상체 중심 입체형';
+          svgBox.innerHTML = `
+            <svg width="85" height="130" viewBox="0 0 100 150" fill="none">
+              <circle cx="50" cy="20" r="14" fill="#38c9b2"/>
+              <path d="M30 45 L50 40 L70 45 L74 75 L64 105 L50 110 L36 105 L26 75 Z" fill="#4fe0c8" opacity="0.85"/>
+              <path d="M36 105 L32 150 L44 150 L48 110 Z" fill="#2ca894"/>
+              <path d="M64 105 L68 150 L56 150 L52 110 Z" fill="#38c9b2"/>
+            </svg>
+          `;
+          bestList.innerHTML = '<li>클래식 스탠다드 셔츠</li><li>일자 스트레이트 슬랙스</li><li>V넥 &amp; 스퀘어넥 상의</li>';
+          worstList.innerHTML = '<li>과도한 프릴 &amp; 퍼프소매</li><li>루즈핏 오버사이즈 니트</li><li>얇고 주름지는 쉬폰 소재</li>';
+        } else if (state.bodyType === '웨이브') {
+          subBadge.textContent = '하체 중심 곡선형';
+          svgBox.innerHTML = `
+            <svg width="85" height="130" viewBox="0 0 100 150" fill="none">
+              <circle cx="50" cy="20" r="12" fill="#38c9b2"/>
+              <path d="M36 45 L50 40 L64 45 L62 70 L68 106 L50 112 L32 106 L38 70 Z" fill="#4fe0c8" opacity="0.85"/>
+              <path d="M32 106 L28 150 L42 150 L48 112 Z" fill="#2ca894"/>
+              <path d="M68 106 L72 150 L58 150 L52 112 Z" fill="#38c9b2"/>
+            </svg>
+          `;
+          bestList.innerHTML = '<li>하이웨이스트 &amp; A라인 스커트</li><li>크롭 가디건 및 블라우스</li><li>부드러운 쉬폰, 트위드</li>';
+          worstList.innerHTML = '<li>로우웨이스트 팬츠</li><li>길게 늘어지는 루즈핏 원피스</li><li>두껍고 뻣뻣한 헤비 데님</li>';
+        } else {
+          subBadge.textContent = '골격 프레임 중심형';
+          svgBox.innerHTML = `
+            <svg width="85" height="130" viewBox="0 0 100 150" fill="none">
+              <circle cx="50" cy="20" r="13" fill="#38c9b2"/>
+              <path d="M26 44 L50 40 L74 44 L72 78 L64 105 L50 112 L36 105 L28 78 Z" fill="#4fe0c8" opacity="0.85"/>
+              <path d="M36 105 L32 150 L46 150 L48 112 Z" fill="#2ca894"/>
+              <path d="M64 105 L68 150 L54 150 L52 112 Z" fill="#38c9b2"/>
+            </svg>
+          `;
+          bestList.innerHTML = '<li>오버핏 더블 블레이저 자켓</li><li>롱 와이드 팬츠</li><li>린넨, 코듀로이, 생지 데님</li>';
+          worstList.innerHTML = '<li>과도하게 밀착되는 스키니핏</li><li>작고 얇은 미니 스커트</li><li>광택이 심한 실크/새틴</li>';
+        }
+      }
+
+      document.getElementById('btnGoToHome').addEventListener('click', function() {
+        showScreen('screen-home');
+      });
+
+      // [Step 6] 홈 화면 버튼 연결
+      document.getElementById('btnOpenDetailedReport').addEventListener('click', function() {
+        showScreen('screen-report-detail');
+      });
+      document.getElementById('btnServiceAnalysis').addEventListener('click', function() {
+        showScreen('screen-report-detail');
+      });
+      document.getElementById('btnServiceStyling').addEventListener('click', function() {
+        showScreen('screen-styling');
+      });
+      document.getElementById('btnServicePosture').addEventListener('click', function() {
+        showScreen('screen-posture');
+      });
+      document.getElementById('btnServiceMarket').addEventListener('click', function() {
+        showScreen('screen-market');
+      });
+      document.getElementById('btnHeaderProfile').addEventListener('click', function() {
+        showScreen('screen-posture');
+      });
+
+      // 추천 아이템 클릭 피드백
+      document.querySelectorAll('.product-card').forEach(c => {
+        c.addEventListener('click', function() {
+          const price = c.querySelector('.product-price').textContent;
+          const tag = c.querySelector('.product-tag').textContent;
+          alert(`[미러핏 추천 코디]\n${tag} 상품 (${price})\n고객님의 '${state.bodyType}형' 체형에 최적화된 추천 룩입니다.`);
+        });
+      });
+
+      // [Step 7-1] 상세 리포트
+      document.getElementById('btnBackFromReport').addEventListener('click', goBack);
+      document.getElementById('btnRetakePhoto').addEventListener('click', function() {
+        showScreen('screen-capture');
+      });
+
+      // [Step 7-2] 자세 교정 & 타이머
+      document.getElementById('btnBackFromPosture').addEventListener('click', goBack);
+      const timerModal = document.getElementById('timerModal');
+      const timerDisplay = document.getElementById('timerDisplay');
+      let countdown = null;
+
+      document.querySelectorAll('.btn-timer-trigger').forEach(btn => {
+        btn.addEventListener('click', function() {
+          let s = parseInt(btn.getAttribute('data-sec'), 10) || 30;
+          timerDisplay.textContent = `${s}s`;
+          timerModal.classList.add('active');
+
+          clearInterval(countdown);
+          countdown = setInterval(function() {
+            s--;
+            if (s <= 0) {
+              clearInterval(countdown);
+              timerDisplay.textContent = '완료! 👏';
+            } else {
+              timerDisplay.textContent = `${s}s`;
+            }
+          }, 1000);
+        });
+      });
+
+      document.getElementById('btnFinishTimer').addEventListener('click', function() {
+        clearInterval(countdown);
+        timerModal.classList.remove('active');
+      });
+
+      // [Step 7-3] 맞춤 스타일링 필터
+      document.getElementById('btnBackFromStyling').addEventListener('click', goBack);
+      const styleFilterChips = document.querySelectorAll('.filter-chip');
+      const lookCards = document.querySelectorAll('.look-card');
+
+      styleFilterChips.forEach(chip => {
+        chip.addEventListener('click', function() {
+          styleFilterChips.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          const cat = chip.getAttribute('data-cat');
+          lookCards.forEach(card => {
+            const tag = card.getAttribute('data-style-tag');
+            if (cat === 'all' || tag === cat) {
+              card.style.display = 'block';
+            } else {
+              card.style.display = 'none';
+            }
+          });
+        });
+      });
+
+      lookCards.forEach(card => {
+        card.addEventListener('click', function() {
+          const title = card.querySelector('div[style*="font-weight:700"]').textContent;
+          alert(`[스타일링 룩 상세]\n"${title}"\n\n고객님의 ${state.bodyType} 골격 비율을 가장 날씬하고 길어 보이게 연출하는 추천 셋업입니다.`);
+        });
+      });
+
+      // [Step 7-4] 연계 중고거래
+      document.getElementById('btnBackFromMarket').addEventListener('click', goBack);
+      const marketModal = document.getElementById('marketModal');
+      const mTitle = document.getElementById('modalMTitle');
+      const mPrice = document.getElementById('modalMPrice');
+
+      document.querySelectorAll('.market-card-row').forEach(row => {
+        row.addEventListener('click', function() {
+          mTitle.textContent = row.getAttribute('data-m-title');
+          mPrice.textContent = row.getAttribute('data-m-price');
+          marketModal.classList.add('active');
+        });
+      });
+
+      document.getElementById('btnCloseMarketModal').addEventListener('click', function() {
+        marketModal.classList.remove('active');
+      });
+
+      document.getElementById('btnChatModal').addEventListener('click', function() {
+        alert(`[1:1 피팅 문의 채팅방 연결]\n판매자님에게 메시지를 보냈습니다:\n"동일한 ${state.bodyType}형인데 허리랑 어깨 착용감 문의드려요!"`);
+        marketModal.classList.remove('active');
+      });
+
+      document.getElementById('btnBuyModal').addEventListener('click', function() {
+        alert(`[미러핏 안전 결제]\n${mTitle.textContent}\n안전 거래 에스크로 결제가 정상적으로 완료되었습니다.`);
+        marketModal.classList.remove('active');
+      });
+
+      document.getElementById('btnOpenSellModal').addEventListener('click', function() {
+        const t = prompt('판매할 옷의 상품명을 입력하세요:', '스트레이트 핏 자켓');
+        if (t) {
+          const p = prompt('판매 희망 가격을 입력하세요 (숫자):', '35000');
+          if (p) {
+            alert(`[판매 등록 완료]\n"${t}" (${Number(p).toLocaleString()}원) 상품이 등록되었습니다.\n회원님의 체형 데이터(165cm / ${state.bodyType}형)가 정품 체형 인증 뱃지로 부착되었습니다!`);
+          }
+        }
+      });
+
+    })();
+  </script>
+</body>
+</html>
